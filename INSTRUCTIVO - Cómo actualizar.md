@@ -10,6 +10,25 @@ manteniendo ambos al mismo nivel, y pasa la contraseña por separado.
 El HTML carga los estilos desde `app/panel.css` y el código y los datos cifrados desde `app/panel.js`.
 Cada actualización regenera los tres archivos. Si el panel está abierto, recarga la página después de actualizarlo.
 
+### Descargar las OC y su resumen
+
+Abre el detalle de un contrato o unidad, selecciona el período y pulsa **Descargar OC + Resumen en Excel**.
+El archivo `.xlsx` incluye dos hojas:
+
+- **OC**: todas las órdenes de compra de la selección y el período, incluyendo las que no caben en el detalle en pantalla.
+- **Resumen**: desglose por partida con valor real, proyectado, diferencia (real menos referencia), porcentaje vs referencia y semáforo con color. Los montos están en pesos CLP.
+
+El resumen usa la misma referencia del detalle: proyección comprometida repartida según el mix de los últimos tres meses y prorrateada al corte. Cuando esa referencia no está disponible, muestra **Habitual** (promedio de los tres meses anteriores). Las remuneraciones y la depreciación pendientes se indican como **llega con IG**; las partidas sin referencia, como **nuevo**.
+El semáforo es azul hasta 100%, amarillo sobre 100% y hasta 110%, y rojo sobre 110%.
+
+### Generar el reporte de costo
+
+Junto al botón de descarga, **Generar reporte de costo** crea otro Excel para la misma selección y período.
+Agrupa todas las líneas de OC por ítem y muestra las columnas **ITEM**, **Monto Gasto del Mes (CLP)**,
+**N° O/C**, **Nombre Proveedor** y **Comentario**, con un total al final. Mantiene los ítems sin OC como secciones vacías.
+El comentario viene de la columna **COMENTARIOSAPROBACION** del archivo SAP; queda vacío cuando la fuente no tiene comentario.
+Si una OC tiene varias líneas, se muestra cada línea en su ítem, sin duplicar su monto por recepciones o facturas.
+
 ---
 
 ## 🔒 Contraseña
@@ -102,7 +121,7 @@ volver a cargar el histórico.
 ## 🧠 Lo que el panel hace solo (no tienes que tocar nada)
 
 - **Las OC se asignan al mes según `FECHACREACION`**. Esa fecha también se muestra
-  en el detalle y en la descarga CSV.
+  en el detalle y en la hoja OC de la descarga Excel.
 - **La fecha de corte se detecta sola** = la última `FECHACREACION` de las OCs cargadas. Si subes OCs
   hasta el 20 de julio, el panel se corre solo a esa fecha.
 - **Une todos los archivos de OC** de `Fuentes/OC/` sin duplicar (reconoce las líneas por su Nº de OC).

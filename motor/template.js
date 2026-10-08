@@ -1,5 +1,47 @@
 const CIFRADO = /*__CIFRADO__*/ null;   // datos cifrados (AES-GCM); se descifran con la contraseña
 let DATA;
+// Excel OOXML sin dependencias externas: funciona también al abrir el panel localmente.
+function excelOc(hojas){
+  const xml=v=>String(v??'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const col=i=>{let s='';for(i++;i;i=Math.floor((i-1)/26))s=String.fromCharCode(65+(i-1)%26)+s;return s;};
+  const archivos=[];
+  const add=(nombre,contenido)=>archivos.push([nombre,new TextEncoder().encode(contenido)]);
+  add('[Content_Types].xml',`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hojas.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`);
+  add('_rels/.rels','<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+  add('xl/workbook.xml',`<workbook xmlns="${ns}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${hojas.map((h,i)=>`<sheet name="${xml(h.nombre)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>`);
+  add('xl/_rels/workbook.xml.rels',`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${hojas.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${hojas.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  // Estilos: normal, cabecera, pesos, porcentaje, azul, amarillo, rojo y pendiente.
+  add('xl/styles.xml',`<styleSheet xmlns="${ns}"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="7"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>${['17365D','DCEAF7','FFF2CC','FCE4D6','E7E6E6'].map(c=>`<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join('')}</fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8">${[[0,0,0],[0,1,2],[3,0,0],[9,0,0],[9,0,3],[9,0,4],[9,0,5],[0,0,6]].map(([n,f,b])=>`<xf numFmtId="${n}" fontId="${f}" fillId="${b}" borderId="0" xfId="0" applyNumberFormat="1" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>`).join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
+  hojas.forEach((h,i)=>{
+    const last=col(h.anchos.length-1), fin=h.filas.length;
+  const rows=h.filas.map((r,ri)=>`<row r="${ri+1}"${h.alturas?.[ri]?` ht="${h.alturas[ri]}" customHeight="1"`:ri===h.cabecera-1?' ht="32" customHeight="1"':''}>${r.map((cel,ci)=>{
+      const v=cel&&typeof cel==='object'?cel.v:cel;
+      const s=cel&&typeof cel==='object'?(cel.s||0):0;
+      const ref=col(ci)+(ri+1);
+      return typeof v==='number'&&Number.isFinite(v)?`<c r="${ref}" s="${s}"><v>${v}</v></c>`:`<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${xml(v)}</t></is></c>`;
+    }).join('')}</row>`).join('');
+    add(`xl/worksheets/sheet${i+1}.xml`,`<worksheet xmlns="${ns}"><dimension ref="A1:${last}${fin}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="${h.cabecera}" topLeftCell="A${h.cabecera+1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${h.anchos.map((w,j)=>`<col min="${j+1}" max="${j+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows}</sheetData>${h.filtro===false?'':`<autoFilter ref="A${h.cabecera}:${last}${fin}"/>`}</worksheet>`);
+  });
+  // Contenedor ZIP sin compresión (método STORE), con CRC32 por entrada.
+  const tabla=Uint32Array.from({length:256},(_,i)=>{let c=i;for(let j=0;j<8;j++)c=(c&1)?0xEDB88320^(c>>>1):c>>>1;return c>>>0;});
+  const crc=b=>{let c=0xFFFFFFFF;for(const v of b)c=tabla[(c^v)&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
+  const partes=[],central=[];let offset=0,tamCentral=0;
+  for(const[nombre,b]of archivos){
+    const n=new TextEncoder().encode(nombre),c=crc(b);
+    const local=new Uint8Array(30+n.length),lv=new DataView(local.buffer);
+    lv.setUint32(0,0x04034B50,true);lv.setUint16(4,20,true);lv.setUint16(12,33,true);
+    lv.setUint32(14,c,true);lv.setUint32(18,b.length,true);lv.setUint32(22,b.length,true);lv.setUint16(26,n.length,true);local.set(n,30);
+    partes.push(local,b);
+    const dir=new Uint8Array(46+n.length),dv=new DataView(dir.buffer);
+    dv.setUint32(0,0x02014B50,true);dv.setUint16(4,20,true);dv.setUint16(6,20,true);dv.setUint16(14,33,true);
+    dv.setUint32(16,c,true);dv.setUint32(20,b.length,true);dv.setUint32(24,b.length,true);dv.setUint16(28,n.length,true);dv.setUint32(42,offset,true);dir.set(n,46);
+    central.push(dir);tamCentral+=dir.length;offset+=local.length+b.length;
+  }
+  const fin=new Uint8Array(22),fv=new DataView(fin.buffer);
+  fv.setUint32(0,0x06054B50,true);fv.setUint16(8,archivos.length,true);fv.setUint16(10,archivos.length,true);fv.setUint32(12,tamCentral,true);fv.setUint32(16,offset,true);
+  return new Blob([...partes,...central,fin],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
 const el=id=>document.getElementById(id);
 const _b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 async function descifrar(clave){
@@ -20,7 +62,7 @@ el('gateForm').addEventListener('submit',async ev=>{
 function iniciar(){
 const META=DATA.meta, ESC=META.escala||1e6;
 const ZN=DATA.dim.zona, UN=DATA.dim.unidad.map(u=>u.nombre), LN=DATA.dim.linea;
-const PART=DATA.partidas, PROV=DATA.cat.prov, CONC=DATA.cat.conc;
+const PART=DATA.partidas, PROV=DATA.cat.prov, CONC=DATA.cat.conc, COMENT=DATA.cat.comentario||[];
 // Administración (centros corporativos) no se muestra en el panel: fuera de filas, filtros y totales
 const _zAdm=ZN.indexOf('Administración');
 const _sinAdm=rows=>rows.filter(r=>r[0]!==_zAdm);
@@ -239,16 +281,23 @@ function filasOcModal(c,per){
   return DET.filter(d=>d[0]===c.zi && d[1]===c.ui && (c.li==null||d[2]===c.li)
     && d[4].slice(0,7)===per.mes && (per.dia==null||(+d[4].slice(8,10))<=per.dia)).sort((a,b)=>b[5]-a[5]);
 }
-function csvOcModal(filas){
-  const celda=v=>{
-    let s=String(v??'');
-    if(typeof v!=='number' && /^[\s]*[=+\-@]/.test(s))s="'"+s;
-    return '"'+s.replace(/"/g,'""')+'"';
-  };
+function excelOcModal(filas,c,per){
+  const resumen=resumenPartidas(c,per), celda=(v,s=0)=>({v,s});
+  const contexto=c.zona+' · '+c.unidad+' · '+(c.linea||'Todas las líneas');
+  const periodo=per.mes+(per.dia?' (días 1–'+per.dia+')':' (mes completo)');
   const cabecera=['Zona','Unidad','Línea de negocio','Fecha de creación','Nº OC','Proveedor','Detalle','Código de partida','Partida','Monto (CLP)'];
-  const registros=filas.map(d=>[ZN[d[0]],UN[d[1]],LN[d[2]],d[4],d[8],PROV[d[6]]||'—',CONC[d[7]]||'—',
-    (PART[d[3]]||{}).cod||'',(PART[d[3]]||{}).nombre||'—',d[5]]);
-  return '\uFEFF'+[cabecera,...registros].map(r=>r.map(celda).join(';')).join('\r\n')+'\r\n';
+  const registros=filas.map(d=>[ZN[d[0]],UN[d[1]],LN[d[2]],d[4],String(d[8]??''),PROV[d[6]]||'—',CONC[d[7]]||'—',
+    (PART[d[3]]||{}).cod||'',(PART[d[3]]||{}).nombre||'—',celda(d[5],2)]);
+  const detalle=resumen.filas.map(r=>[r.cod,r.nombre,celda(r.pendiente?null:r.real,2),celda(r.referencia,2),
+    celda(r.pendiente?null:r.diferencia,2),celda(r.ratio,r.estilo),celda(r.estado,r.estilo)]);
+  return excelOc([
+    {nombre:'Resumen',anchos:[20,48,24,24,24,22,28],cabecera:8,filas:[
+      ['Resumen por partida'],['Selección',contexto],['Período',periodo],['Moneda','CLP (pesos)'],
+      ['Referencia',resumen.nota],['Diferencia','Real − '+resumen.refNombre.toLowerCase()],
+      ['Semáforo','Azul: hasta 100%. Amarillo: más de 100% hasta 110%. Rojo: más de 110%.'],
+      ['Código de partida','Partida','Valor real (CLP)',resumen.refNombre+' (CLP)','Diferencia (CLP)',resumen.refVs+' (%)','Semáforo'].map(v=>celda(v,1)),...detalle]},
+    {nombre:'OC',anchos:[18,32,26,22,18,40,60,20,40,22],cabecera:1,filas:[cabecera.map(v=>celda(v,1)),...registros]}
+  ]);
 }
 function descargarOcModal(){
   if(!modalCtx||!modalPeriodo)return;
@@ -256,13 +305,54 @@ function descargarOcModal(){
   if(!filas.length)return;
   const limpio=s=>String(s).replace(/[<>:"/\\|?*\x00-\x1F]/g,'_').trim().slice(0,60);
   const nombre=['OC',modalCtx.zona,modalCtx.unidad,modalCtx.linea||'Todas las líneas',modalPeriodo.mes,
-    modalPeriodo.dia?'hasta_dia_'+modalPeriodo.dia:'mes_completo'].map(limpio).join('_')+'.csv';
-  const url=URL.createObjectURL(new Blob([csvOcModal(filas)],{type:'text/csv;charset=utf-8;'}));
+    modalPeriodo.dia?'hasta_dia_'+modalPeriodo.dia:'mes_completo'].map(limpio).join('_')+'.xlsx';
+  const url=URL.createObjectURL(excelOcModal(filas,modalCtx,modalPeriodo));
   const enlace=document.createElement('a');
   enlace.href=url;enlace.download=nombre;document.body.appendChild(enlace);enlace.click();enlace.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-el('mDescargarCSV').onclick=descargarOcModal;
+el('mDescargarExcel').onclick=descargarOcModal;
+function filasReporteCosto(filas,c,per){
+  const cabecera=['ITEM','Monto Gasto del Mes (CLP)','N° O/C','Nombre Proveedor','Comentario'];
+  const salida=[['REPORTE DE COSTO'],['Selección',c.zona+' · '+c.unidad+' · '+(c.linea||'Todas las líneas')],
+    ['Período',per.mes+(per.dia?' (días 1–'+per.dia+')':' (mes completo)')],
+    ['Moneda','CLP (pesos)'],cabecera.map(v=>({v,s:1}))];
+  // Orden de los ítems del formato de reporte; conserva otras partidas al final.
+  const orden=['2.01','2.02','2.03','2.04','2.05','2.07','2.08','2.09','2.10','2.11','2.12','2.13','2.14','2.15','2.16','2.17','2.18','2.20','2.23','2.22','2.19'];
+  const grupos=new Map();
+  for(const d of filas){if(!grupos.has(d[3]))grupos.set(d[3],[]);grupos.get(d[3]).push(d);}
+  const indices=[...new Set([...PART.map((p,i)=>orden.includes(p.cod)?i:null).filter(i=>i!=null),...grupos.keys()])];
+  const pos=pi=>{const i=orden.indexOf((PART[pi]||{}).cod);return i<0?orden.length:i;};
+  indices.sort((a,b)=>pos(a)-pos(b)||String((PART[a]||{}).cod).localeCompare(String((PART[b]||{}).cod),undefined,{numeric:true}));
+  for(const pi of indices){
+    const item=(PART[pi]||{}).nombre||'(Revisar)';
+    salida.push([item,'','','',''].map(v=>({v,s:1})));
+    const detalle=(grupos.get(pi)||[]).slice().sort((a,b)=>String(a[8]).localeCompare(String(b[8]),undefined,{numeric:true})||a[4].localeCompare(b[4])||a[7]-b[7]);
+    for(const d of detalle){const comentario=COMENT[d[9]];salida.push(['',{v:d[5],s:2},String(d[8]??''),PROV[d[6]]||'',comentario==='—'?'':comentario||'']);}
+    if(!detalle.length)salida.push(['','','','','']);
+  }
+  salida.push(['TOTAL GASTO OC',{v:filas.reduce((s,d)=>s+d[5],0),s:2},'','','']);
+  return salida;
+}
+function excelReporteCosto(filas,c,per){
+  const registros=filasReporteCosto(filas,c,per);
+  const texto=v=>String(v&&typeof v==='object'?v.v??'':v??'');
+  const alturas=registros.map(r=>Math.max(24,...r.map((v,i)=>texto(v).split('\n').reduce((s,l)=>s+Math.max(1,Math.ceil(l.length/[40,24,20,38,70][i])),0)*15+6)));
+  return excelOc([{nombre:'Reporte de costo',anchos:[44,26,22,40,75],cabecera:5,filtro:false,filas:registros,alturas}]);
+}
+function generarReporteCosto(){
+  if(!modalCtx||!modalPeriodo)return;
+  const filas=filasOcModal(modalCtx,modalPeriodo);
+  if(!filas.length)return;
+  const limpio=s=>String(s).replace(/[<>:"/\\|?*\x00-\x1F]/g,'_').trim().slice(0,60);
+  const nombre=['Reporte de costo',modalCtx.zona,modalCtx.unidad,modalCtx.linea||'Todas las líneas',modalPeriodo.mes,
+    modalPeriodo.dia?'hasta_dia_'+modalPeriodo.dia:'mes_completo'].map(limpio).join('_')+'.xlsx';
+  const url=URL.createObjectURL(excelReporteCosto(filas,modalCtx,modalPeriodo));
+  const enlace=document.createElement('a');
+  enlace.href=url;enlace.download=nombre;document.body.appendChild(enlace);enlace.click();enlace.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+el('mReporteCosto').onclick=generarReporteCosto;
 function periodosModal(){
   const P=el('fPeriodo').value||META.mes_actual, esActual=(P===META.mes_actual);
   const dia=esActual?META.dia_hoy:null, P1=prevMes(P);
@@ -279,9 +369,7 @@ function abrirModal(ctx){ modalCtx=ctx; el('mTitulo').textContent=ctx.unidad+(ct
   pintarModal(ps[0]);
   el('modalBg').classList.add('on');
 }
-function pintarModal(per){
-  modalPeriodo=per;
-  const c=modalCtx;
+function resumenPartidas(c,per){
   // --- resumen por línea de costo (partida): real del período vs gasto habitual (promedio 3 meses previos) ---
   const dimM=diasMes(per.mes), frac=(per.dia?per.dia/dimM:1);
   const H=[prevMes(per.mes),prevMes(prevMes(per.mes)),prevMes(prevMes(prevMes(per.mes)))];
@@ -306,24 +394,37 @@ function pintarModal(per){
     :('real vs gasto habitual (promedio 3 meses previos'+(per.dia?(', prorrateado al día '+per.dia):'')+')');
   const pids=[...new Set([...Object.keys(cur),...Object.keys(hist)])].map(Number)
     .sort((a,b)=>(cur[b]||0)-(cur[a]||0)||(hist[b]||0)-(hist[a]||0));
+  const filas=pids.map(pi=>{
+    const p=PART[pi]||{},real=cur[pi]||0,referencia=ref(pi);
+    const pendiente=igPend&&(p.cod==='2.01'||p.cod==='2.06');
+    const ratio=pendiente||!referencia?null:real/referencia;
+    const estilo=ratio==null?7:ratio<=SEM_AMARILLO?4:ratio<=SEM_ROJO?5:6;
+    return {cod:p.cod||'',nombre:p.nombre||'—',real,referencia,diferencia:real-referencia,pendiente,ratio,estilo,
+      estado:pendiente?'llega con IG':ratio==null?'nuevo':estilo===4?'Azul':estilo===5?'Amarillo':'Rojo'};
+  });
+  return {filas,refNombre:REF_N,refVs:REF_V,nota:REF_NOTA};
+}
+function pintarModal(per){
+  modalPeriodo=per;
+  const c=modalCtx, datos=resumenPartidas(c,per);
   let resumen='';
-  if(pids.length){
-    resumen=`<h3 style="margin:12px 8px 6px;font-size:13px;color:var(--navy)">Líneas de costo del período <span style="font-weight:400;color:#8593a0;font-size:11px">${REF_NOTA}</span></h3>`+
-      `<table style="margin-bottom:14px"><thead><tr><th class="izq">Partida</th><th>Real</th><th>${REF_N}</th><th>Diferencia</th><th>${REF_V}</th></tr></thead><tbody>`+
-      pids.map(pi=>{
-        const p=PART[pi]||{}; const esIG=(p.cod==='2.01'||p.cod==='2.06');
-        const re=cur[pi]||0, ha=ref(pi), d=re-ha;
-        if(esIG&&igPend) return `<tr><td class="izq">${p.nombre||'—'}</td><td>–</td><td>${fmt(ha)}</td><td>–</td><td><span class="sem sem-mini sem-nd">llega con IG</span></td></tr>`;
-        const chip=!ha?'<span class="sem sem-mini sem-nd">nuevo</span>':(()=>{const r2=re/ha;const cls=r2<=SEM_AMARILLO?'sem-azul':(r2<=SEM_ROJO?'sem-amarillo':'sem-rojo');return `<span class="sem sem-mini ${cls}">${r2>9.99?'&gt;999%':Math.round(r2*100)+'%'}</span>`;})();
-        return `<tr><td class="izq">${p.nombre||'—'}</td><td>${fmt(re)}</td><td>${fmt(ha)}</td><td class="${d>0?'neg':'pos'}">${d>0?'+':''}${fmt(d)}</td><td>${chip}</td></tr>`;
+  if(datos.filas.length){
+    resumen=`<h3 style="margin:12px 8px 6px;font-size:13px;color:var(--navy)">Líneas de costo del período <span style="font-weight:400;color:#8593a0;font-size:11px">${datos.nota}</span></h3>`+
+      `<table style="margin-bottom:14px"><thead><tr><th class="izq">Partida</th><th>Real</th><th>${datos.refNombre}</th><th>Diferencia</th><th>${datos.refVs}</th></tr></thead><tbody>`+
+      datos.filas.map(r=>{
+        if(r.pendiente) return `<tr><td class="izq">${r.nombre}</td><td>–</td><td>${fmt(r.referencia)}</td><td>–</td><td><span class="sem sem-mini sem-nd">llega con IG</span></td></tr>`;
+        const cls=r.estilo===4?'sem-azul':r.estilo===5?'sem-amarillo':'sem-rojo';
+        const chip=r.ratio==null?'<span class="sem sem-mini sem-nd">nuevo</span>':`<span class="sem sem-mini ${cls}">${r.ratio>9.99?'&gt;999%':Math.round(r.ratio*100)+'%'}</span>`;
+        return `<tr><td class="izq">${r.nombre}</td><td>${fmt(r.real)}</td><td>${fmt(r.referencia)}</td><td class="${r.diferencia>0?'neg':'pos'}">${r.diferencia>0?'+':''}${fmt(r.diferencia)}</td><td>${chip}</td></tr>`;
       }).join('')+`</tbody></table>`;
   }
   // --- órdenes de compra ---
   const filas=filasOcModal(c,per);
-  el('mDescargarCSV').disabled=!filas.length;
+  el('mDescargarExcel').disabled=!filas.length;
+  el('mReporteCosto').disabled=!filas.length;
   const suma=filas.reduce((s,d)=>s+d[5],0);
   el('mResumen').innerHTML=`<span><b>${filas.length}</b> OCs</span><span>Total compras <b>${fmt(suma)}</b> MM$</span><span>(${pesos(suma)})</span>`;
-  if(!filas.length&&!pids.length){
+  if(!filas.length&&!datos.filas.length){
     el('mBody').innerHTML=`<div class="vacio">Sin datos en este período.</div>`;
     return;
   }
