@@ -14,7 +14,7 @@ Modelo de gasto (acordado):
   - IG = remuneraciones (2.01) y depreciación (2.06), TODAS las zonas, meses cerrados (no el mes en curso).
   - faena -> zona y nombre canónico salen del IG (autoridad). El IG define las 8 zonas.
 
-Salida: motor/data/data.json + Panel Costos Resiter.html + app/panel.css + app/panel.js
+Salida: data/data.json  +  dist/panel_costos.html
 """
 import warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')   # celdas con fechas basura en columnas de la OC que no usamos
@@ -438,29 +438,6 @@ def ig_historico_guardado(ig_hasta_fuente):
                       previo['dim']['linea'][r[2]], cod, r[4], r[5]))
     return filas
 
-def generar_panel(blob):
-    """Generar el HTML y sus archivos CSS/JS junto a la carpeta app."""
-    with open(P("template.html"), encoding="utf-8") as f:
-        html = f.read()
-    with open(P("template.css"), encoding="utf-8") as f:
-        css = f.read()
-    with open(P("template.js"), encoding="utf-8") as f:
-        js = f.read().replace("/*__CIFRADO__*/ null", json.dumps(blob))
-    logo_path = P("logo_white.b64")
-    if os.path.exists(logo_path):
-        with open(logo_path, encoding="utf-8") as f:
-            html = html.replace("__LOGO__", f.read().strip())
-    app = os.path.join(RAIZ, "app")
-    os.makedirs(app, exist_ok=True)
-    for nombre, contenido in (("panel.css", css), ("panel.js", js)):
-        with open(os.path.join(app, nombre), "w", encoding="utf-8") as f:
-            f.write(contenido)
-    salida = os.path.join(RAIZ, "Panel Costos Resiter.html")
-    with open(salida, "w", encoding="utf-8") as f:
-        f.write(html)
-    return salida
-
-
 def main():
     partidas = cargar_clasificacion()
     faena2zona, z8_bases, ig_rows = parse_ig()
@@ -541,7 +518,12 @@ def main():
     json.dump(data, open(P("data","data.json"),"w",encoding="utf-8"), ensure_ascii=False)
     clave = clave_panel()
     blob = cifrar(json.dumps(data, ensure_ascii=False), clave)
-    generar_panel(blob)
+    html=open(P("template.html"),encoding="utf-8").read().replace("/*__CIFRADO__*/ null", json.dumps(blob))
+    logo_path=P("logo_white.b64")
+    if os.path.exists(logo_path):
+        html=html.replace("__LOGO__", open(logo_path,encoding="utf-8").read().strip())
+    salida=os.path.join(RAIZ,"Panel Costos Resiter.html")
+    open(salida,"w",encoding="utf-8").write(html)
 
     sm=lambda mes: sum(v for k,d in mens.items() for m,v in d.items() if m==mes)
     cx=lambda mes: sum(v for k,d in capex.items() for m,v in d.items() if m==mes)

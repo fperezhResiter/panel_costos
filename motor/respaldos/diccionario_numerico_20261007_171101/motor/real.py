@@ -5,7 +5,7 @@ ETL REAL v2 del Panel de Costos — MODELO MENSUAL (habilita filtro de fecha his
 
 Fuentes (fuentes/):
   - Ppto:  Detalle Ppto 2026 ... (Ventas + Mg Explotación)
-  - OC:    OC 2025 hasta 15-06-2026.xlsx   (compras, por FECHACREACION)
+  - OC:    OC 2025 hasta 15-06-2026.xlsx   (compras, por FECHAGENERACION)
   - IG:    IG 202604 Resiter Final.xlsm    (P&L completo por faena/partida/mes, hasta abr-2026)
   - Plan de cuentas: hoja 'Clasificacion' del IG 202512.
 
@@ -14,7 +14,7 @@ Modelo de gasto (acordado):
   - IG = remuneraciones (2.01) y depreciación (2.06), TODAS las zonas, meses cerrados (no el mes en curso).
   - faena -> zona y nombre canónico salen del IG (autoridad). El IG define las 8 zonas.
 
-Salida: motor/data/data.json + Panel Costos Resiter.html + app/panel.css + app/panel.js
+Salida: data/data.json  +  dist/panel_costos.html
 """
 import warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')   # celdas con fechas basura en columnas de la OC que no usamos
@@ -70,8 +70,8 @@ def _oc_files():
         if fs: return fs
     return [_buscar("OC (compras SAP)", ("oc",), ".xlsx")]
 
-OC_COLS=['NOMBRECCONSUMO','NOMBRELINEADENEGOC','NOMBRECONCEPTOIMPU','FECHACREACION',
-         'VALORTOTALNETOOC','NOMBREPROVEEDOR','NUMEROOC','NOMBREPRODUCTO','LINEAOC','CONCEPTOIMPUTACION']
+OC_COLS=['NOMBRECCONSUMO','NOMBRELINEADENEGOC','NOMBRECONCEPTOIMPU','FECHAGENERACION',
+         'VALORTOTALNETOOC','NOMBREPROVEEDOR','NUMEROOC','NOMBREPRODUCTO','LINEAOC']
 _OC=None
 def cargar_oc():
     """Lee TODOS los archivos de OC y los une a nivel de LÍNEA de OC (NUMEROOC, LINEAOC).
@@ -86,12 +86,6 @@ def cargar_oc():
         wb=openpyxl.load_workbook(path, read_only=True, data_only=True); ws=wb['Hoja1']
         hdr=[c.value for c in next(ws.iter_rows(min_row=1,max_row=1))]
         ix=[next((i for i,h in enumerate(hdr) if h and str(h).startswith(c)),None) for c in OC_COLS]
-        if ix[3] is None:
-            wb.close()
-            raise ValueError(f"La OC {os.path.basename(path)} no tiene la columna FECHACREACION.")
-        if ix[9] is None:
-            wb.close()
-            raise ValueError(f"La OC {os.path.basename(path)} no tiene la columna CONCEPTOIMPUTACION.")
         iNoc,iLin,iVal=ix[6],ix[8],ix[4]
         pf={}   # línea -> [valor_sumado, fila_representativa]
         for r in ws.iter_rows(min_row=2, values_only=True):
@@ -105,7 +99,7 @@ def cargar_oc():
                 if v: e[1]=[r[i] if i is not None else None for i in ix]   # fila con el valor manda
         for key,(vs,rep) in pf.items():
             rep[4]=vs
-            old=master.get(key)   # algunos exports de SAP vienen con FECHACREACION vacía: conservar la fecha buena anterior
+            old=master.get(key)   # algunos exports de SAP vienen con FECHAGENERACION vacía: conservar la fecha buena anterior
             if old is not None and not isinstance(rep[3],dt.datetime) and isinstance(old[3],dt.datetime):
                 rep[3]=old[3]
             master[key]=tuple(rep)   # el último archivo procesado gana
@@ -189,7 +183,7 @@ def cargar_clasificacion():
         grupo = {'1':'Ingresos','2':'Costo directo','5':'Gasto administración'}.get(cod_niv.split('.')[0],'Otros')
         partidas.setdefault(cod_niv, (cod_niv, (nom_niv or nom_part), grupo))
     wb.close()
-    partidas.update({cod: (cod, f'{nombre}', 'Costo directo')
+    partidas.update({cod: (cod, f'{cod} {nombre}', 'Costo directo')
                      for cod, nombre in PARTIDAS_TABLA.items()})
     return partidas
 
@@ -294,44 +288,41 @@ def construir_resolver(faena2zona, z8_bases, ppto_f2z):
 # --------------------------------------------------------------------
 # OC: mensual por (zona,faena,linea,partida) + detalle  (reruteo de 2.01/2.06 fuera de OC)
 # --------------------------------------------------------------------
-def normalizar_concepto_imputacion(valor):
-    """Unifica códigos enteros de Excel y CSV: 22310, 22310.0 y 022310."""
-    if valor is None: return ''
-    texto = str(valor).strip().replace(',', '.')
-    if not re.fullmatch(r'[0-9]+(?:[.]0+)?', texto): return ''
-    return str(int(texto.split('.')[0]))
-
-
-def cargar_diccionario_partidas():
-    """Cruce autorizado: CONCEPTOIMPUTACION -> Codigo_partida, sin reglas por nombre."""
-    path = P('mapeos', 'dicionario.csv')
-    if not os.path.exists(path):
-        raise ValueError('Falta motor/mapeos/dicionario.csv para clasificar las OC.')
-    out = {}
-    with open(path, encoding='utf-8-sig', newline='') as f:
-        encabezado = f.readline()
-        separador = ';' if ';' in encabezado else ','
-        f.seek(0)
-        reader = csv.DictReader(f, delimiter=separador)
-        if not {'CONCEPTOIMPUTACION', 'Codigo_partida'}.issubset(reader.fieldnames or []):
-            raise ValueError('El diccionario debe tener CONCEPTOIMPUTACION y Codigo_partida.')
-        for fila, row in enumerate(reader, 2):
-            raw = (row.get('CONCEPTOIMPUTACION') or '').strip()
-            if not raw: continue  # conceptos sin número confirmado no participan del cruce
-            concepto = normalizar_concepto_imputacion(raw)
-            partida = (row.get('Codigo_partida') or '').strip()
-            if not concepto:
-                raise ValueError(f"CONCEPTOIMPUTACION inválido en dicionario.csv, fila {fila}: {raw}")
-            if partida not in PARTIDAS_TABLA and partida not in ('CAPEX', '(Revisar)'):
-                raise ValueError(f"Código de partida inválido en dicionario.csv, fila {fila}: {partida}")
-            if concepto in out and out[concepto] != partida:
-                raise ValueError(f"El concepto {concepto} tiene partidas contradictorias en dicionario.csv.")
-            out[concepto] = partida
-    return out
-
+REGLAS = [
+    ('ACTIVO','CAPEX'),   # compras de activo fijo: no son gasto, se separan del panel
+    ('EXAMEN','2.03'),('PSICOLAB','2.03'),('REGALIA','2.13'),('BENEF','2.13'),('COLACION','2.13'),
+    ('ALIMENT','2.13'),('CASINO','2.13'),('TRANSPORTE PERSONAL','2.04'),('TRANSPORTE DEL','2.04'),
+    ('HOSPEDAJE','2.16'),('VIAJE','2.16'),('CAPACITAC','2.03'),('RECLUT','2.03'),
+    ('FINIQUITO','2.02'),('ARRIENDO','2.07'),('COMBUSTIBLE','2.08'),('LUBRICANTE','2.08'),
+    ('GAS VAPOR','2.08'),('NEUMATICO','2.09'),('ELEMENTOS DE TRABAJO','2.11'),('ELEMENTO DE TRABAJO','2.11'),
+    ('ROPA','2.11'),('DETERGENTE','2.11'),('MATERIALES DE ASEO','2.11'),('ARTICULOS DE ASEO','2.11'),
+    ('EPP','2.12'),('SEGURIDAD INDUSTRIAL','2.12'),('ELEMENTOS SEGURIDAD','2.12'),
+    ('IT Y TELE','2.14'),('SISTEMAS','2.14'),('TELECOMUNIC','2.14'),
+    ('MANTENC','2.17'),('REPARAC','2.17'),('REPUESTO','2.17'),('FILTRO','2.17'),
+    ('COMPRA DE COMER','2.19'),('VENTA DE COMERC','2.19'),('FLETE','2.20'),('MULTA','2.21'),
+    ('ASESORIA','2.22'),('REEMBOLS','2.23'),
+    ('AGUA POTABLE','2.15'),('AGUA Y ALC','2.15'),('ENERGIA','2.15'),('LAVANDERIA','2.15'),
+    ('VERTEDERO','2.15'),('BAÑOS','2.15'),('BANOS','2.15'),('ARTICULOS DE ESCRIT','2.15'),
+    ('ARTICULOS DE OFICINA','2.15'),('PAPELERIA','2.15'),('OFICINA','2.15'),
+    ('QUIMICO','2.15'),('FERRETERIA','2.15'),('HIDRAULICO','2.15'),('ELECTRICO','2.15'),
+    ('MAQUINARIA','2.07'),('CAMION','2.07'),('TRANSPORTE','2.20'),('SERV','2.22'),
+    # NOTA: los conceptos de activo ('Puente Activo fijo', 'Activos para la venta') van a CAPEX:
+    # se excluyen del gasto (vuelven como depreciación 2.06 vía IG) y se informan aparte.
+    # 2.01/2.06 son exclusivos del IG.
+]
+def sembrar_concepto_partida(conceptos):
+    path = P("mapeos","concepto_partida.csv")
+    if os.path.exists(path): return cargar_csv(path)
+    os.makedirs(P("mapeos"), exist_ok=True)
+    filas = []
+    for c in sorted(conceptos):
+        cn = norm(c); cod = next((p for sub,p in REGLAS if sub in cn), '(Revisar)')
+        filas.append((c, cod))
+    escribir_csv(path, ["concepto","partida_cod"], filas)
+    return {norm(c):cod for c,cod in filas}
 
 def procesar_oc(resolver, c2p):
-    # filas ya deduplicadas (OC_COLS): 0=faena 1=ln 2=concepto 3=fecha 4=val 5=prov 6=noc 7=prod 8=linea 9=concepto_imputacion
+    # filas ya deduplicadas (OC_COLS): 0=faena 1=ln 2=concepto 3=fecha 4=val 5=prov 6=noc 7=prod 8=linea
     cache={}
     def res(f):
         if f not in cache: cache[f]=resolver(f)
@@ -346,7 +337,7 @@ def procesar_oc(resolver, c2p):
         zona,faena = res(r[0] or '')
         linea = canon_ln(r[1])
         if linea=='Aseo industrial': zona='Zona 8'   # el negocio de aseo ES la Zona 8, sin importar la faena
-        part = c2p.get(normalizar_concepto_imputacion(r[9]), '(Revisar)')
+        part = c2p.get(norm(r[2]), '(Revisar)') or '(Revisar)'
         if part in ('2.01','2.06'): part='(Revisar)'   # 2.01/2.06 son exclusivos del IG
         try: v=float(r[4] or 0)
         except: v=0.0
@@ -438,29 +429,6 @@ def ig_historico_guardado(ig_hasta_fuente):
                       previo['dim']['linea'][r[2]], cod, r[4], r[5]))
     return filas
 
-def generar_panel(blob):
-    """Generar el HTML y sus archivos CSS/JS junto a la carpeta app."""
-    with open(P("template.html"), encoding="utf-8") as f:
-        html = f.read()
-    with open(P("template.css"), encoding="utf-8") as f:
-        css = f.read()
-    with open(P("template.js"), encoding="utf-8") as f:
-        js = f.read().replace("/*__CIFRADO__*/ null", json.dumps(blob))
-    logo_path = P("logo_white.b64")
-    if os.path.exists(logo_path):
-        with open(logo_path, encoding="utf-8") as f:
-            html = html.replace("__LOGO__", f.read().strip())
-    app = os.path.join(RAIZ, "app")
-    os.makedirs(app, exist_ok=True)
-    for nombre, contenido in (("panel.css", css), ("panel.js", js)):
-        with open(os.path.join(app, nombre), "w", encoding="utf-8") as f:
-            f.write(contenido)
-    salida = os.path.join(RAIZ, "Panel Costos Resiter.html")
-    with open(salida, "w", encoding="utf-8") as f:
-        f.write(html)
-    return salida
-
-
 def main():
     partidas = cargar_clasificacion()
     faena2zona, z8_bases, ig_rows = parse_ig()
@@ -471,8 +439,9 @@ def main():
     ppto_f2z = cargar_ppto_f2z()
     resolver = construir_resolver(faena2zona, z8_bases, ppto_f2z)
 
-    # El diccionario numérico es la única fuente de clasificación de compras.
-    c2p = cargar_diccionario_partidas()
+    # conceptos OC -> sembrar mapeo (desde las filas ya cargadas)
+    conceptos={ (r[2] or '').strip() for r in cargar_oc() }
+    c2p = sembrar_concepto_partida(conceptos)
 
     oc_mens, detalle, capex = procesar_oc(resolver, c2p)
 
@@ -531,7 +500,7 @@ def main():
     data=dict(
         meta=dict(hoy=HOY.isoformat(), mes_actual=MES_ACT, dia_hoy=DIA_HOY, ig_hasta=ig_hasta,
                   ig_hasta_fuente=ig_hasta_fuente,
-                  meses=MESES_SEL, fecha_oc="FECHACREACION", moneda="CLP", escala=1_000_000, generado=HOY.isoformat()+"T11:00:00",
+                  meses=MESES_SEL, moneda="CLP", escala=1_000_000, generado=HOY.isoformat()+"T11:00:00",
                   origen="real (OC SAP + IG) vs proyección comprometida"),
         dim=dict(zona=zonas, unidad=[{"nombre":n,"zona":z} for n,z in unidades], linea=lineas),
         partidas=PARTIDAS, cat=dict(prov=list(provs.keys()), conc=list(concs.keys())),
@@ -541,7 +510,12 @@ def main():
     json.dump(data, open(P("data","data.json"),"w",encoding="utf-8"), ensure_ascii=False)
     clave = clave_panel()
     blob = cifrar(json.dumps(data, ensure_ascii=False), clave)
-    generar_panel(blob)
+    html=open(P("template.html"),encoding="utf-8").read().replace("/*__CIFRADO__*/ null", json.dumps(blob))
+    logo_path=P("logo_white.b64")
+    if os.path.exists(logo_path):
+        html=html.replace("__LOGO__", open(logo_path,encoding="utf-8").read().strip())
+    salida=os.path.join(RAIZ,"Panel Costos Resiter.html")
+    open(salida,"w",encoding="utf-8").write(html)
 
     sm=lambda mes: sum(v for k,d in mens.items() for m,v in d.items() if m==mes)
     cx=lambda mes: sum(v for k,d in capex.items() for m,v in d.items() if m==mes)

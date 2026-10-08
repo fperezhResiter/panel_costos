@@ -5,16 +5,13 @@
 ## ▶️ Para VER el panel
 
 Doble clic en **`Panel Costos Resiter.html`**. Se abre en el navegador y **pide una contraseña**.
-Para compartirlo, incluye **`Panel Costos Resiter.html`** y la carpeta **`app`** completa,
-manteniendo ambos al mismo nivel, y pasa la contraseña por separado.
-El HTML carga los estilos desde `app/panel.css` y el código y los datos cifrados desde `app/panel.js`.
-Cada actualización regenera los tres archivos. Si el panel está abierto, recarga la página después de actualizarlo.
+Para compartirlo, sube ese archivo a SharePoint (o envíalo) y pasa la contraseña por separado.
 
 ---
 
 ## 🔒 Contraseña
 
-El panel **viene cifrado**: los datos están encriptados dentro de `app/panel.js` y **sin la contraseña no se ven**
+El panel **viene cifrado**: los datos están encriptados dentro del archivo y **sin la contraseña no se ven**
 (no alcanza con "ver código fuente"). La contraseña se define en **`motor/clave.txt`**.
 
 - **Cambiar la contraseña:** abre `motor/clave.txt`, escribe la nueva, guarda, y corre **`Actualizar panel.command`**.
@@ -22,7 +19,7 @@ El panel **viene cifrado**: los datos están encriptados dentro de `app/panel.js
 - **Importante:** quien tenga la contraseña puede ver los datos. Elige una robusta y compártela por un canal aparte.
 - Cualquiera que tenga acceso a esta carpeta puede leer `motor/clave.txt`. Si quieres que la contraseña sea
   un secreto real frente a quienes ven la carpeta, guarda la carpeta `motor` en un lugar restringido
-  (o no la compartas) y distribuye solo el `.html` junto con la carpeta `app`.
+  (o no la compartas) y distribuye solo el `.html`.
 - El cifrado necesita que el navegador abra el archivo de forma segura (desde SharePoint, o doble clic local).
   Funciona en Chrome, Edge, Firefox y Safari.
 
@@ -101,17 +98,9 @@ volver a cargar el histórico.
 
 ## 🧠 Lo que el panel hace solo (no tienes que tocar nada)
 
-- **Las OC se asignan al mes según `FECHACREACION`**. Esa fecha también se muestra
-  en el detalle y en la descarga CSV.
-- **La fecha de corte se detecta sola** = la última `FECHACREACION` de las OCs cargadas. Si subes OCs
+- **La fecha de corte se detecta sola** = la última fecha de las OCs cargadas. Si subes OCs
   hasta el 20 de julio, el panel se corre solo a esa fecha.
 - **Une todos los archivos de OC** de `Fuentes/OC/` sin duplicar (reconoce las líneas por su Nº de OC).
-- **La partida de cada OC** se asigna cruzando su columna `CONCEPTOIMPUTACION`
-  con `motor/mapeos/dicionario.csv`: `CONCEPTOIMPUTACION` → `Codigo_partida`.
-  El nombre del concepto se conserva como referencia; no se usa para clasificar.
-  Si un número no está en el diccionario, aparece como **(Revisar)**. Para incorporarlo,
-  agrega una fila con su número y código de partida y vuelve a actualizar el panel.
-  Los códigos marcados como `CAPEX` se muestran como inversión fuera del total de gasto.
 - **Las remuneraciones y la depreciación** se toman del IG, y **solo aparecen en los meses
   cerrados**. El mes en curso va solo con OC (porque el IG de ese mes todavía no existe).
 - El **selector de Período** (arriba a la izquierda) permite mirar cualquier mes histórico.

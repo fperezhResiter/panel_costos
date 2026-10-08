@@ -5,7 +5,7 @@ ETL REAL v2 del Panel de Costos — MODELO MENSUAL (habilita filtro de fecha his
 
 Fuentes (fuentes/):
   - Ppto:  Detalle Ppto 2026 ... (Ventas + Mg Explotación)
-  - OC:    OC 2025 hasta 15-06-2026.xlsx   (compras, por FECHACREACION)
+  - OC:    OC 2025 hasta 15-06-2026.xlsx   (compras, por FECHAGENERACION)
   - IG:    IG 202604 Resiter Final.xlsm    (P&L completo por faena/partida/mes, hasta abr-2026)
   - Plan de cuentas: hoja 'Clasificacion' del IG 202512.
 
@@ -14,7 +14,7 @@ Modelo de gasto (acordado):
   - IG = remuneraciones (2.01) y depreciación (2.06), TODAS las zonas, meses cerrados (no el mes en curso).
   - faena -> zona y nombre canónico salen del IG (autoridad). El IG define las 8 zonas.
 
-Salida: motor/data/data.json + Panel Costos Resiter.html + app/panel.css + app/panel.js
+Salida: data/data.json  +  dist/panel_costos.html
 """
 import warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')   # celdas con fechas basura en columnas de la OC que no usamos
@@ -70,7 +70,7 @@ def _oc_files():
         if fs: return fs
     return [_buscar("OC (compras SAP)", ("oc",), ".xlsx")]
 
-OC_COLS=['NOMBRECCONSUMO','NOMBRELINEADENEGOC','NOMBRECONCEPTOIMPU','FECHACREACION',
+OC_COLS=['NOMBRECCONSUMO','NOMBRELINEADENEGOC','NOMBRECONCEPTOIMPU','FECHAGENERACION',
          'VALORTOTALNETOOC','NOMBREPROVEEDOR','NUMEROOC','NOMBREPRODUCTO','LINEAOC','CONCEPTOIMPUTACION']
 _OC=None
 def cargar_oc():
@@ -86,9 +86,6 @@ def cargar_oc():
         wb=openpyxl.load_workbook(path, read_only=True, data_only=True); ws=wb['Hoja1']
         hdr=[c.value for c in next(ws.iter_rows(min_row=1,max_row=1))]
         ix=[next((i for i,h in enumerate(hdr) if h and str(h).startswith(c)),None) for c in OC_COLS]
-        if ix[3] is None:
-            wb.close()
-            raise ValueError(f"La OC {os.path.basename(path)} no tiene la columna FECHACREACION.")
         if ix[9] is None:
             wb.close()
             raise ValueError(f"La OC {os.path.basename(path)} no tiene la columna CONCEPTOIMPUTACION.")
@@ -105,7 +102,7 @@ def cargar_oc():
                 if v: e[1]=[r[i] if i is not None else None for i in ix]   # fila con el valor manda
         for key,(vs,rep) in pf.items():
             rep[4]=vs
-            old=master.get(key)   # algunos exports de SAP vienen con FECHACREACION vacía: conservar la fecha buena anterior
+            old=master.get(key)   # algunos exports de SAP vienen con FECHAGENERACION vacía: conservar la fecha buena anterior
             if old is not None and not isinstance(rep[3],dt.datetime) and isinstance(old[3],dt.datetime):
                 rep[3]=old[3]
             master[key]=tuple(rep)   # el último archivo procesado gana
@@ -189,7 +186,7 @@ def cargar_clasificacion():
         grupo = {'1':'Ingresos','2':'Costo directo','5':'Gasto administración'}.get(cod_niv.split('.')[0],'Otros')
         partidas.setdefault(cod_niv, (cod_niv, (nom_niv or nom_part), grupo))
     wb.close()
-    partidas.update({cod: (cod, f'{nombre}', 'Costo directo')
+    partidas.update({cod: (cod, f'{cod} {nombre}', 'Costo directo')
                      for cod, nombre in PARTIDAS_TABLA.items()})
     return partidas
 
@@ -438,29 +435,6 @@ def ig_historico_guardado(ig_hasta_fuente):
                       previo['dim']['linea'][r[2]], cod, r[4], r[5]))
     return filas
 
-def generar_panel(blob):
-    """Generar el HTML y sus archivos CSS/JS junto a la carpeta app."""
-    with open(P("template.html"), encoding="utf-8") as f:
-        html = f.read()
-    with open(P("template.css"), encoding="utf-8") as f:
-        css = f.read()
-    with open(P("template.js"), encoding="utf-8") as f:
-        js = f.read().replace("/*__CIFRADO__*/ null", json.dumps(blob))
-    logo_path = P("logo_white.b64")
-    if os.path.exists(logo_path):
-        with open(logo_path, encoding="utf-8") as f:
-            html = html.replace("__LOGO__", f.read().strip())
-    app = os.path.join(RAIZ, "app")
-    os.makedirs(app, exist_ok=True)
-    for nombre, contenido in (("panel.css", css), ("panel.js", js)):
-        with open(os.path.join(app, nombre), "w", encoding="utf-8") as f:
-            f.write(contenido)
-    salida = os.path.join(RAIZ, "Panel Costos Resiter.html")
-    with open(salida, "w", encoding="utf-8") as f:
-        f.write(html)
-    return salida
-
-
 def main():
     partidas = cargar_clasificacion()
     faena2zona, z8_bases, ig_rows = parse_ig()
@@ -531,7 +505,7 @@ def main():
     data=dict(
         meta=dict(hoy=HOY.isoformat(), mes_actual=MES_ACT, dia_hoy=DIA_HOY, ig_hasta=ig_hasta,
                   ig_hasta_fuente=ig_hasta_fuente,
-                  meses=MESES_SEL, fecha_oc="FECHACREACION", moneda="CLP", escala=1_000_000, generado=HOY.isoformat()+"T11:00:00",
+                  meses=MESES_SEL, moneda="CLP", escala=1_000_000, generado=HOY.isoformat()+"T11:00:00",
                   origen="real (OC SAP + IG) vs proyección comprometida"),
         dim=dict(zona=zonas, unidad=[{"nombre":n,"zona":z} for n,z in unidades], linea=lineas),
         partidas=PARTIDAS, cat=dict(prov=list(provs.keys()), conc=list(concs.keys())),
@@ -541,7 +515,12 @@ def main():
     json.dump(data, open(P("data","data.json"),"w",encoding="utf-8"), ensure_ascii=False)
     clave = clave_panel()
     blob = cifrar(json.dumps(data, ensure_ascii=False), clave)
-    generar_panel(blob)
+    html=open(P("template.html"),encoding="utf-8").read().replace("/*__CIFRADO__*/ null", json.dumps(blob))
+    logo_path=P("logo_white.b64")
+    if os.path.exists(logo_path):
+        html=html.replace("__LOGO__", open(logo_path,encoding="utf-8").read().strip())
+    salida=os.path.join(RAIZ,"Panel Costos Resiter.html")
+    open(salida,"w",encoding="utf-8").write(html)
 
     sm=lambda mes: sum(v for k,d in mens.items() for m,v in d.items() if m==mes)
     cx=lambda mes: sum(v for k,d in capex.items() for m,v in d.items() if m==mes)

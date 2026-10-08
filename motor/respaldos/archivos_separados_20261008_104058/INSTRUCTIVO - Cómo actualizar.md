@@ -5,16 +5,13 @@
 ## ▶️ Para VER el panel
 
 Doble clic en **`Panel Costos Resiter.html`**. Se abre en el navegador y **pide una contraseña**.
-Para compartirlo, incluye **`Panel Costos Resiter.html`** y la carpeta **`app`** completa,
-manteniendo ambos al mismo nivel, y pasa la contraseña por separado.
-El HTML carga los estilos desde `app/panel.css` y el código y los datos cifrados desde `app/panel.js`.
-Cada actualización regenera los tres archivos. Si el panel está abierto, recarga la página después de actualizarlo.
+Para compartirlo, sube ese archivo a SharePoint (o envíalo) y pasa la contraseña por separado.
 
 ---
 
 ## 🔒 Contraseña
 
-El panel **viene cifrado**: los datos están encriptados dentro de `app/panel.js` y **sin la contraseña no se ven**
+El panel **viene cifrado**: los datos están encriptados dentro del archivo y **sin la contraseña no se ven**
 (no alcanza con "ver código fuente"). La contraseña se define en **`motor/clave.txt`**.
 
 - **Cambiar la contraseña:** abre `motor/clave.txt`, escribe la nueva, guarda, y corre **`Actualizar panel.command`**.
@@ -22,7 +19,7 @@ El panel **viene cifrado**: los datos están encriptados dentro de `app/panel.js
 - **Importante:** quien tenga la contraseña puede ver los datos. Elige una robusta y compártela por un canal aparte.
 - Cualquiera que tenga acceso a esta carpeta puede leer `motor/clave.txt`. Si quieres que la contraseña sea
   un secreto real frente a quienes ven la carpeta, guarda la carpeta `motor` en un lugar restringido
-  (o no la compartas) y distribuye solo el `.html` junto con la carpeta `app`.
+  (o no la compartas) y distribuye solo el `.html`.
 - El cifrado necesita que el navegador abra el archivo de forma segura (desde SharePoint, o doble clic local).
   Funciona en Chrome, Edge, Firefox y Safari.
 
