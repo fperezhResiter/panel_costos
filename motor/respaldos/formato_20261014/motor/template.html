@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:mso="urn:schemas-microsoft-com:office:office" xmlns:msdt="uuid:C2F41010-65B3-11d1-A29F-00AA00C14882">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel de Costos · Resiter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app/panel.css">
+
+<!--[if gte mso 9]><xml>
+<mso:CustomDocumentProperties>
+<mso:docLang msdt:dt="string">es</mso:docLang>
+</mso:CustomDocumentProperties>
+</xml><![endif]-->
+<!-- INICIO CONTROLES UNIVERSALES -->
+<link rel="stylesheet" href="app/controles-comunes.css">
+<script src="app/controles-comunes.js" data-menu="../../Panel Universal.html"></script>
+<!-- FIN CONTROLES UNIVERSALES -->
+</head>
+<body>
+<div id="tip"></div>
+<div id="gate">
+  <img src="__LOGO__" alt="Resiter">
+  <h2>Panel de Costos</h2>
+  <p>Contenido protegido. Ingrese su contraseña para ver el panel.</p>
+  <form id="gateForm" autocomplete="off">
+    <input id="gatePass" type="password" placeholder="Contraseña" autocomplete="current-password" autofocus>
+    <button id="gateBtn" type="submit">Entrar</button>
+  </form>
+  <div class="gate-err" id="gateErr"></div>
+</div>
+<header>
+  <div class="marca">
+    <img class="logo" src="__LOGO__" alt="Resiter">
+    <h1>Panel de Costos <span id="origen" class="pill"></span></h1>
+  </div>
+  <div class="corte" id="corteLbl"></div>
+</header>
+
+<div class="barra">
+  <div class="filtro"><label>Período</label><select id="fPeriodo"></select></div>
+  <div class="filtro"><label>Zona</label><select id="fZona"></select></div>
+  <div class="filtro"><label>Unidad</label><select id="fUnidad"></select></div>
+  <div class="filtro"><label>Línea de negocio</label><select id="fLinea"></select></div>
+  <div class="filtro"><label>Detalle</label><select id="fDetalle"><option value="contrato">Por contrato</option><option value="unidad">Por unidad</option></select></div>
+  <div class="filtro"><label>&nbsp;</label><button class="btn" id="expandir">Expandir todo</button></div>
+  <div class="filtro"><label>&nbsp;</label><button class="btn" id="colapsar">Colapsar todo</button></div>
+</div>
+
+<main>
+  <div class="unidad-cap" id="unidadCap"></div>
+  <div class="estado" id="estadoMes"></div>
+  <table id="tabla">
+    <thead>
+      <tr>
+        <th class="izq">Apertura</th>
+        <th id="th_real">Real<span class="sub"></span></th>
+        <th id="th_ph">Proyectado a hoy<span class="sub"></span></th>
+        <th id="th_dif">Diferencia<span class="sub">real − proyectado <i class="ic">i</i></span></th>
+        <th id="th_sem">% Avance<span class="sub">semáforo <i class="ic">i</i></span></th>
+        <th id="th_pm">Proy. mes<span class="sub">comprometida <i class="ic">i</i></span></th>
+      </tr>
+    </thead>
+    <tbody id="cuerpo"></tbody>
+    <tfoot id="pie"></tfoot>
+  </table>
+  <p class="nota" id="notaPie"></p>
+</main>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="mhead">
+      <div style="flex:1">
+        <h2 id="mTitulo"></h2>
+        <div class="msub" id="mContexto"></div>
+        <div class="tabs" id="mTabs"></div>
+        <div class="resumen" id="mResumen"></div>
+        <button class="btn" id="mDescargarExcel" type="button" style="margin-top:10px" disabled>Resumen Item + Descargar OC</button>
+        <button class="btn" id="mReporteCosto" type="button" style="margin-top:10px;margin-left:8px" disabled>Generar reporte de costo</button>
+      </div>
+      <button class="x" id="mCerrar">×</button>
+    </div>
+    <div class="mbody" id="mBody"></div>
+  </div>
+</div>
+
+<script src="app/panel.js"></script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:mso="urn:schemas-microsoft-com:office:office" xmlns:msdt="uuid:C2F41010-65B3-11d1-A29F-00AA00C14882">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITULO_VISTA__ · Costos Resiter</title>
+<link rel="stylesheet" href="app/panel.css">
+
+<!--[if gte mso 9]><xml>
+<mso:CustomDocumentProperties>
+<mso:docLang msdt:dt="string">es</mso:docLang>
+</mso:CustomDocumentProperties>
+</xml><![endif]-->
+<!-- INICIO CONTROLES UNIVERSALES -->
+<link rel="stylesheet" href="app/controles-comunes.css">
+<script src="app/controles-comunes.js" data-menu="../../Panel Universal.html"></script>
+<!-- FIN CONTROLES UNIVERSALES -->
+</head>
+<body data-vista="__VISTA__">
+<div id="tip"></div>
+<div id="gate">
+  <img src="__LOGO__" alt="Resiter">
+  <h2>Panel de Costos</h2>
+  <p>Contenido protegido. Ingrese su contraseña para ver el panel.</p>
+  <form id="gateForm" autocomplete="off">
+    <input aria-label="Contraseña" id="gatePass" type="password" placeholder="Contraseña" autocomplete="current-password" autofocus>
+    <button id="gateBtn" type="submit">Entrar</button>
+  </form>
+  <div class="gate-err" id="gateErr"></div>
+</div>
+<header>
+  <div class="marca">
+    <img class="logo" src="app/logo-resiter.png" alt="Resiter">
+    <h1>__TITULO_VISTA__ <span id="origen" class="pill"></span></h1>
+  </div>
+  <a class="volver-inicio" href="../../Panel Costos Resiter.html">← Volver al inicio</a>
+  <div class="publicacion-header" id="corteLbl"></div>
+</header>
+
+<nav class="navegacion-paneles" aria-label="Vistas del panel de costos">
+  <a id="vista-reporte" href="Panel_Reporte_Costos.html">Reporte de costos</a>
+  <a id="vista-graficos" href="Panel_Proyectado_Real.html">Proyectado vs real por mes</a>
+  <a id="vista-diccionario" href="Panel_Diccionario.html">Diccionario y ayuda</a>
+</nav>
+
+<div class="barra">
+  <div class="filtro"><label for="fPeriodo">Período</label><select id="fPeriodo"></select></div>
+  <div class="filtro"><label for="fZona">Zona</label><select id="fZona"></select></div>
+  <div class="filtro"><label for="fUnidad">Unidad</label><select id="fUnidad"></select></div>
+  <div class="filtro"><label for="fLinea">Línea de negocio</label><select id="fLinea"></select></div>
+  <div class="filtro filtro-detalle"><label for="fDetalle">Detalle</label><select id="fDetalle"><option value="contrato">Por contrato</option><option value="unidad">Por unidad</option><option value="zona">Por zona</option></select></div>
+  <div class="acciones-filtros">
+    <button class="btn" id="expandir" type="button" aria-controls="cuerpo" aria-expanded="false">Expandir todo</button>
+    <button class="btn" id="ordenDefault" type="button" disabled>Orden original</button>
+    <button class="btn" id="descargarPdfMensual" type="button" hidden>Descargar PDF</button>
+    <button class="btn" id="limpiarFiltros" type="button">Limpiar filtros</button>
+  </div>
+</div>
+
+<main>
+  <div class="unidad-cap" id="unidadCap"></div>
+  <div class="estado" id="estadoMes"></div>
+  <div class="ayuda-ig" id="ayudaIg" hidden><button type="button" class="enlace-diccionario" data-ir-diccionario="dic-ig">¿Cómo resolver el IG pendiente?</button></div>
+  <section class="kpis" id="tarjetasResumen" aria-label="Resumen del período seleccionado"></section>
+<!-- VISTA:reporte -->
+  <section class="tarjeta" id="reporteCostos" aria-labelledby="tituloReporte">
+    <div class="titulo"><h2 id="tituloReporte">Costos reales y proyección comprometida</h2></div>
+    <div class="scroll" tabindex="0" role="region" aria-label="Tabla de costos por zona, unidad y contrato">
+  <table id="tabla">
+    <thead>
+      <tr>
+        <th class="izq" id="th_apertura">Apertura</th>
+        <th id="th_real">Real<span class="sub"></span></th>
+        <th id="th_ph">Proyectado a hoy<span class="sub"></span></th>
+        <th id="th_dif">Diferencia<span class="sub">real − proyectado <i class="ic">i</i></span></th>
+        <th id="th_sem">% Avance<span class="sub">semáforo <i class="ic">i</i></span></th>
+        <th id="th_pm">Proy. mes<span class="sub">comprometida <i class="ic">i</i></span></th>
+      </tr>
+    </thead>
+    <tbody id="cuerpo"></tbody>
+    <tfoot id="pie"></tfoot>
+  </table>
+    </div>
+  <p class="nota" id="notaPie"></p>
+  </section>
+<!-- FIN VISTA -->
+<!-- VISTA:graficos -->
+  <section class="tarjeta" id="vistaGraficos" aria-labelledby="tituloGrafico">
+    <div class="titulo"><h2 id="tituloGrafico">Proyectado vs real por mes</h2><button type="button" class="btn" id="detalleMesGrafico">Ver detalle del período</button></div>
+    <div class="leyenda-mensual"><span class="serie-real">Real</span><span class="serie-proyectado">Proyección comprometida del mes</span><span class="serie-comparable">Proyectado comparable al real</span></div>
+    <p class="grafico-nota">Cifras en MM$. La proyección comprometida corresponde al mes completo. El comparable conserva el prorrateo y la exclusión de IG pendiente del reporte. Se muestran los meses disponibles con los filtros de zona, unidad y línea activos; cada mes conserva la exclusión de unidades sin movimiento.</p>
+    <div class="scroll grafico-scroll" tabindex="0" role="region" aria-label="Gráfico de evolución mensual"><div id="graficoMensual"></div></div>
+    <p id="valorGrafico" class="valor-grafico" role="status">Pase el mouse o enfoque una marca para ver su valor. Pulse para seleccionar el período.</p>
+    <div class="scroll" tabindex="0" role="region" aria-label="Valores mensuales"><table><thead><tr><th class="izq">Mes</th><th>Real</th><th>Proyección mes</th><th>Proyectado comparable</th><th class="izq">Estado</th></tr></thead><tbody id="tablaMensual"></tbody></table></div>
+  </section>
+<!-- FIN VISTA -->
+<!-- VISTA:diccionario -->
+  <section id="vistaDiccionario" aria-labelledby="tituloDiccionario">
+    <div class="intro dic-intro">
+      <div><p class="eyebrow">GUÍA DEL PANEL</p><h2 id="tituloDiccionario">Diccionario y ayuda</h2><p>Qué significa cada dato, de dónde viene y cómo mantener el panel actualizado.</p></div>
+    </div>
+    <nav class="dic-atajos" aria-label="Secciones del diccionario">
+      <button type="button" data-ir-diccionario="dic-ig">Actualizar IG</button>
+      <button type="button" data-ir-diccionario="dic-calculo">Ver el cálculo actual</button>
+      <button type="button" data-ir-diccionario="dic-terminos">Términos y fórmulas</button>
+      <button type="button" data-ir-diccionario="dic-fuentes">Fuentes de información</button>
+    </nav>
+    <section class="tarjeta dic-seccion" aria-labelledby="dic-publicacion">
+      <div class="titulo"><h2 id="dic-publicacion">Datos reconocidos por esta publicación</h2></div>
+      <div id="dicEstado" class="dic-estados" aria-live="polite"></div>
+      <p class="dic-aviso" id="dicHistorico"></p>
+    </section>
+    <div class="dic-columnas">
+      <section class="tarjeta dic-seccion" aria-labelledby="dic-ig">
+        <div class="titulo"><h2 id="dic-ig" tabindex="-1">Cómo actualizar el IG y quitar el pendiente</h2></div>
+        <div class="dic-contenido">
+          <p><b>IG = Informe de Gestión.</b> Aporta costos de personal (2.01) y depreciación (2.06). El panel sigue mostrando «pendiente» si el período elegido es posterior al último mes de IG reconocido.</p>
+          <ol class="dic-pasos">
+            <li><b>Consigue el IG cerrado y acumulado.</b> Debe incluir el mes que quieres completar y los meses anteriores. La entrega habitual indicada para este panel es entre el 15 y el 20 del mes siguiente; comprueba el contenido del archivo.</li>
+            <li><b>Revisa y guarda el libro en Excel.</b> Conserva el formato <code>.xlsm</code>, las hojas de zona y contrato, los encabezados de mes de la fila 7 y las filas de personal y depreciación. Si contiene fórmulas, recalcula y guarda para que sus resultados queden disponibles.</li>
+            <li><b>Reemplaza <code>Fuentes/IG.xlsm</code>.</b> Mantén un único IG de trabajo en esa carpeta. Guarda el respaldo anterior en otra carpeta: el actualizador busca un archivo <code>.xlsm</code> y varios IG pueden hacer que lea uno distinto al esperado.</li>
+            <li><b>Ejecuta el actualizador.</b> En Windows, doble clic en <code>Actualizar panel.bat</code>; en Mac, <code>Actualizar panel.command</code>. Espera el mensaje <b>PANEL ACTUALIZADO CORRECTAMENTE</b> y revisa la línea <b>IG hasta</b>.</li>
+            <li><b>Recarga y comprueba.</b> Abre de nuevo el panel o recarga la página, ingresa la contraseña y selecciona el mes actualizado. En esta vista, <b>IG reconocido hasta</b> debe alcanzar ese mes. En el detalle del contrato o del total, revisa <b>IG · remuneraciones y depreciación</b> y concilia los montos con el libro.</li>
+          </ol>
+          <p class="dic-aviso"><b>Para que deje de estar pendiente:</b> el nuevo archivo debe aportar datos numéricos de personal o depreciación para ese mes, la actualización debe terminar correctamente y debes recargar la publicación. Cambiar el nombre del archivo o elegir otra fecha no incorpora los costos.</p>
+          <p id="dicEjemploIg" class="dic-ejemplo"></p>
+        </div>
+      </section>
+      <section class="tarjeta dic-seccion" aria-labelledby="dic-problemas">
+        <div class="titulo"><h2 id="dic-problemas">Si actualizaste y el IG sigue pendiente</h2></div>
+        <div class="dic-contenido dic-soluciones">
+          <details open><summary>El IG nuevo todavía no incluye el mes</summary><p>Revisa los importes del mes dentro del libro. El último mes se detecta por valores numéricos distintos de cero de personal o depreciación en las hojas reconocidas; el nombre o la fecha de modificación del archivo no determina su cobertura.</p></details>
+          <details><summary>Excel muestra valores, pero el panel no los reconoce</summary><p>El lector utiliza resultados guardados de las fórmulas; no ejecuta Excel ni macros. Recalcula y guarda el libro en Excel. Revisa que las hojas de zona y contrato, los meses de la fila 7 y los nombres de las partidas mantengan la estructura esperada. Los encabezados de mes del lector actual corresponden a 2026; un cambio de año o de formato requiere adaptar el lector.</p></details>
+          <details><summary>Se está leyendo un IG anterior</summary><p>Deja solamente el IG vigente como <code>Fuentes/IG.xlsm</code>. Verifica «IG del archivo fuente hasta» en esta vista. Si es anterior a «IG reconocido hasta», el panel está conservando meses publicados previamente; eso no incorpora el nuevo cierre.</p></details>
+          <details><summary>El actualizador terminó con un error</summary><p>Busca el mensaje de error en la ventana. El texto final «Actualización finalizada» no garantiza éxito: comprueba <b>PANEL ACTUALIZADO CORRECTAMENTE</b>. Revisa la ubicación y el formato de las fuentes, Python y las dependencias; corrige el error y vuelve a ejecutar.</p></details>
+          <details><summary>Estoy viendo una copia antigua o falta un contrato</summary><p>Recarga el panel generado. Si lo compartes, entrega juntos la portada y las carpetas <code>web</code> y <code>app</code> recién actualizadas. Si el mes ya figura completo pero un contrato no tiene IG, revisa su hoja, sufijo de línea, zona y montos: el estado del IG es global y no certifica que todos los contratos estén completos.</p></details>
+          <details><summary>El mes está en curso</summary><p>Normalmente su IG se entrega al mes siguiente. Mientras el cierre no esté disponible, conserva el pendiente y compara las compras con la proyección ajustada. La fecha del panel sigue el último registro de OC, no la fecha del computador ni la entrega del IG.</p></details>
+        </div>
+      </section>
+    </div>
+    <section class="tarjeta dic-seccion" aria-labelledby="dic-calculo">
+      <div class="titulo"><h2 id="dic-calculo" tabindex="-1">Así se calcula tu selección</h2></div>
+      <div class="dic-contenido"><p id="dicSeleccion"></p><dl id="dicCalculo" class="dic-calculo"></dl><p class="dic-aviso">Estos valores usan los mismos registros, filtros y exclusiones que el TOTAL DIVISIÓN. Las cifras de las fórmulas están redondeadas; ≈ indica un resultado aproximado. Las operaciones del panel se hacen con los valores en pesos antes de mostrar una décima de MM$.</p></div>
+    </section>
+    <section class="tarjeta dic-seccion" aria-labelledby="dic-terminos">
+      <div class="titulo"><h2 id="dic-terminos" tabindex="-1">Términos, fórmulas y criterios</h2></div>
+      <div class="dic-contenido">
+        <label class="dic-busqueda" for="dicBuscar">Buscar término, fórmula o fuente<input type="search" id="dicBuscar" placeholder="Ej.: IG, avance, habitual, CAPEX…" aria-controls="dicTerminos"></label>
+        <p id="dicResultados" class="dic-resultados" role="status"></p>
+        <div id="dicTerminos"></div>
+        <p id="dicVacio" hidden>No se encontraron coincidencias. Prueba con otro término.</p>
+      </div>
+    </section>
+    <section class="tarjeta dic-seccion" aria-labelledby="dic-fuentes">
+      <div class="titulo"><h2 id="dic-fuentes" tabindex="-1">De dónde sale la información</h2></div>
+      <div class="scroll" tabindex="0" role="region" aria-label="Fuentes del panel"><table class="dic-tabla"><thead><tr><th class="izq">Fuente</th><th class="izq">Información utilizada</th><th class="izq">Cómo actualizarla</th></tr></thead><tbody>
+        <tr><td><b>Compras SAP</b><code>Fuentes/OC/*.xlsx</code></td><td>Hoja <code>Hoja1</code>: <code>FECHACREACION</code>, <code>VALORTOTALNETOOC</code>, <code>NUMEROOC</code>, <code>LINEAOC</code>, unidad, línea de negocio, proveedor, producto, <code>CONCEPTOIMPUTACION</code> y <code>COMENTARIOSAPROBACION</code>. Aporta compras netas en pesos CLP, detalle OC y fecha de corte.</td><td>Exporta desde el día 1 hasta el corte o el mes completo; guarda un archivo por mes y conserva los anteriores. Puedes reemplazar el archivo del mismo mes. Si dejas varios exports repetidos, se impone el último procesado según el orden alfabético de nombres; no se elige por fecha de modificación.</td></tr>
+        <tr><td><b>Informe de Gestión</b><code>Fuentes/IG.xlsm</code></td><td>Hojas de contrato bajo cada hoja <code>Zona N</code>, meses en fila 7 y primer bloque de costos hasta <code>TOTAL COSTOS</code>. Se leen personal y depreciación; sus valores en miles de pesos se multiplican por 1.000. También aporta el mapa principal de unidad y zona.</td><td>Reemplaza por el IG acumulado vigente, recalculado y guardado. Sigue los cinco pasos de esta guía.</td></tr>
+        <tr><td><b>Proyección de cierre</b><code>Fuentes/Proyeccion.xlsx</code></td><td>Hoja <code>Resumen Costos x Mes</code>: zona, unidad, contrato y montos de enero a diciembre desde la columna E. Importes en miles de pesos × 1.000. Aporta la meta mensual por contrato, desde agosto de 2026.</td><td>Reemplaza el archivo conservando la hoja y estructura. El motor prioriza la plantilla de Control de Gestión si encuentra una de sus rutas configuradas; en ese caso actualizar solo la copia de <code>Fuentes</code> no cambia la meta. Comprueba «Proyección leída de» en la actualización.</td></tr>
+        <tr><td><b>Presupuesto</b><code>Fuentes/Presupuesto.xlsx</code></td><td>Hoja <code>Resiter Minería (Ventas)</code>. Sirve como apoyo para asociar unidad y zona cuando no se resuelve desde el IG. El comparador de costos es la proyección comprometida.</td><td>Reemplaza solo si cambia el catálogo de unidades, conservando la estructura.</td></tr>
+        <tr><td><b>Plan de cuentas</b><code>Fuentes/Plan de cuentas.xlsx</code></td><td>Hoja <code>Clasificacion</code>. Aporta códigos, nombres y grupos de partidas; el catálogo acordado del panel fija los nombres de las partidas de costo directo.</td><td>Conserva la hoja y columnas. Un cambio en el catálogo acordado requiere revisar también su configuración.</td></tr>
+        <tr><td><b>Diccionario de clasificación OC</b><code>motor/mapeos/dicionario.csv</code></td><td>Relaciona el número <code>CONCEPTOIMPUTACION</code> con <code>Codigo_partida</code>. El nombre del concepto queda como referencia; la clasificación usa su código numérico.</td><td>Para resolver «(Revisar)», confirma el concepto y agrega su partida válida sin códigos contradictorios. Los códigos <code>2.01</code> y <code>2.06</code> se reservan al IG; <code>CAPEX</code> clasifica inversión.</td></tr>
+        <tr><td><b>Histórico publicado</b><code>motor/data/data.json</code></td><td>Conserva meses IG ya publicados posteriores a la cobertura del archivo fuente actual. Por eso el último IG reconocido puede ser más reciente que el IG del archivo fuente.</td><td>Lo genera el actualizador. Conserva este histórico y actualiza desde las fuentes originales.</td></tr>
+      </tbody></table></div>
+      <div class="dic-contenido"><p class="dic-aviso"><b>Después de cambiar cualquier fuente:</b> ejecuta <code>Actualizar panel.bat</code> (Windows) o <code>Actualizar panel.command</code> (Mac) y recarga el panel. Puedes cambiar OC, IG y proyección en una misma actualización. El HTML consulta una publicación cifrada; no lee las planillas en vivo.</p></div>
+    </section>
+  </section>
+<!-- FIN VISTA -->
+  <footer>Resiter Minería · Panel de Costos</footer>
+</main>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="mhead">
+      <div style="flex:1">
+        <h2 id="mTitulo"></h2>
+        <div class="msub" id="mContexto"></div>
+        <div class="tabs" id="mTabs"></div>
+        <div class="resumen" id="mResumen"></div>
+        <button class="btn" id="mDescargarExcel" type="button" style="margin-top:10px" disabled>Resumen Item + Descargar OC</button>
+        <button class="btn" id="mReporteCosto" type="button" style="margin-top:10px;margin-left:8px" disabled>Generar reporte de costo</button>
+      </div>
+      <button class="x" id="mCerrar">×</button>
+    </div>
+    <div class="mbody" id="mBody"></div>
+  </div>
+</div>
+
+<script src="app/vendor/pdf-lib.min.js"></script>
+<script src="app/panel.js"></script>
+</body>
+</html>

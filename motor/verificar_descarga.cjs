@@ -11,8 +11,8 @@ for(const[pi,v]of [[0,300],[1,400],[2,500],[4,100]]){
   fixture.det.push([0,0,0,pi,'2026-10-10',v,0,0,'000123',0]);
 }
 fixture.det.push([0,0,1,0,'2026-10-10',999,0,0,'Otra línea'],[0,0,0,0,'2026-10-20',999,0,0,'Fuera del corte'],[1,0,0,0,'2026-10-10',999,0,0,'Administración']);
-const elements=new Map(),document={getElementById(id){if(!elements.has(id))elements.set(id,{value:'',dataset:{},classList:{toggle(){}},addEventListener(){}});return elements.get(id);},addEventListener(){}};
-let code=fs.readFileSync(path.join(__dirname,'template.js'),'utf8').replace('let DATA;','let DATA=fixture;').replace('  refrescarUnidades(); actualizar(true);','  globalThis.testApi={resumenPartidas,filasOcModal,excelOcModal,pintarModal,filasReporteCosto,excelReporteCosto};');
+const elements=new Map(),document={body:{dataset:{vista:'reporte'}},querySelectorAll(){return [];},getElementById(id){if(!elements.has(id))elements.set(id,{value:'',dataset:{},classList:{toggle(){}},addEventListener(){}});return elements.get(id);},addEventListener(){}};
+let code=fs.readFileSync(path.join(__dirname,'template.js'),'utf8').replace('let DATA;','let DATA=fixture;').replace('  prepararDiccionario(); refrescarUnidades(); restaurarSeleccion(); actualizar(true);','  globalThis.testApi={resumenPartidas,filasOcModal,excelOcModal,pintarModal,filasReporteCosto,excelReporteCosto};return;');
 const sandbox={fixture,document,TextEncoder,Blob};vm.createContext(sandbox);vm.runInContext(code+'\niniciar();',sandbox);
 const api=sandbox.testApi,c={zi:0,ui:0,li:0,zona:'Zona 1',unidad:'Unidad prueba',linea:'Línea A'},per={mes:'2026-10',dia:15};
 const rows=api.filasOcModal(c,per);assert.equal(rows.length,4);assert.equal(rows.reduce((s,r)=>s+r[5],0),1300);

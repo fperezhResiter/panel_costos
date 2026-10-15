@@ -1,0 +1,18 @@
+[
+  {
+    "origen": "C:\\Users\\fperezh\\RESITER S.A\\CL - Gestion Mineria - Documentos\\05. Paneles\\Panel Costos Resiter\\panel_costos\\motor\\respaldos\\portal_tres_vistas_20261014\\integracion_portal\\propuestos\\portal\\rutas_menu.py",
+    "destino": "C:\\Users\\fperezh\\RESITER S.A\\CL - Gestion Mineria - Documentos\\05. Paneles\\portal\\rutas_menu.py"
+  },
+  {
+    "origen": "C:\\Users\\fperezh\\RESITER S.A\\CL - Gestion Mineria - Documentos\\05. Paneles\\Panel Costos Resiter\\panel_costos\\motor\\respaldos\\portal_tres_vistas_20261014\\integracion_portal\\propuestos\\Panel Mantenimiento\\panel_mantenimiento\\app\\rutas_menu.py",
+    "destino": "C:\\Users\\fperezh\\RESITER S.A\\CL - Gestion Mineria - Documentos\\05. Paneles\\Panel Mantenimiento\\panel_mantenimiento\\app\\rutas_menu.py"
+  },
+  {
+    "origen": "C:\\Users\\fperezh\\RESITER S.A\\CL - Gestion Mineria - Documentos\\05. Paneles\\Panel Costos Resiter\\panel_costos\\motor\\respaldos\\portal_tres_vistas_20261014\\integracion_portal\\propuestos\\Panel Reporte Codelco\\panel_codelco\\app\\rutas_menu.py",
+    "destino": "C:\\Users\\fperezh\\RESITER S.A\\CL - Gestion Mineria - Documentos\\05. Paneles\\Panel Reporte Codelco\\panel_codelco\\app\\rutas_menu.py"
+  },
+  {
+    "origen": "C:\\Users\\fperezh\\RESITER S.A\\CL - Gestion Mineria - Documentos\\05. Paneles\\Panel Costos Resiter\\panel_costos\\motor\\respaldos\\portal_tres_vistas_20261014\\integracion_portal\\propuestos\\portal\\sincronizar_controles.py",
+    "destino": "C:\\Users\\fperezh\\RESITER S.A\\CL - Gestion Mineria - Documentos\\05. Paneles\\portal\\sincronizar_controles.py"
+  }
+]

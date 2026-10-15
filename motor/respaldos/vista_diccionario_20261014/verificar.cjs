@@ -1,0 +1,87 @@
+const {chromium}=require('C:/Users/fperezh/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{pathToFileURL}=require('url');
+const output=__dirname;
+(async()=>{
+  const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+  try{
+    const page=await browser.newPage({viewport:{width:1440,height:1050}}),errors=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    await page.goto(pathToFileURL(path.resolve('panel_costos/Panel Costos Resiter.html')).href);
+    await page.locator('#gatePass').fill(fs.readFileSync('panel_costos/motor/clave.txt','utf8').trim());
+    await page.locator('#gateBtn').click();await page.locator('#gate').waitFor({state:'detached'});
+    const initialTotal=await page.locator('#pie').textContent();
+    assert.equal(await page.locator('#ayudaIg').isVisible(),true);
+    await page.locator('#vista-diccionario').click();
+    assert.equal(await page.locator('#vistaDiccionario').isVisible(),true);
+    assert.equal(await page.locator('#reporteCostos').isVisible(),false);
+    assert.equal(await page.locator('#tarjetasResumen').isVisible(),false);
+    assert.equal(await page.locator('#expandir').isVisible(),false);
+    assert.equal(await page.locator('#vista-diccionario').getAttribute('aria-current'),'page');
+    assert.equal(await page.locator('.navegacion-paneles [aria-current=page]').count(),1);
+    assert.equal(await page.locator('#pie').textContent(),initialTotal);
+    assert.equal(await page.locator('.dic-termino').count(),20);
+    assert.match(await page.locator('#dicHistorico').innerText(),/jul-26.*ago-26/);
+    assert.match(await page.locator('#dicEjemploIg').innerText(),/oct-26.*pendiente/);
+    assert.match(await page.locator('#dicCalculo').innerText(),/13 \/ 31 días/);
+    await page.screenshot({path:path.join(output,'diccionario-escritorio.png')});
+    const sourceData=await page.evaluate(()=>DATA);
+    for(const month of ['2026-09','2026-08','2026-07']){
+      await page.locator('#fPeriodo').selectOption(month);
+      const expected=month<=sourceData.meta.ig_hasta;
+      assert.match(await page.locator('#dicEstado').innerText(),expected?/IG reconocido para el mes/:/IG pendiente para el mes/);
+      assert.match(await page.locator('#dicCalculo').innerText(),month==='2026-07'?/Sin meta comparable/:expected?/no se descuenta su peso/:/Se excluye el peso estimado/);
+    }
+    await page.locator('#fPeriodo').selectOption('2026-09');
+    await page.locator('#fZona').selectOption('Zona 1 + 2');
+    await page.locator('#fUnidad').selectOption({index:1});
+    const validLine=await page.locator('#fLinea option:not([disabled])').nth(1).getAttribute('value').then(v=>v||page.locator('#fLinea option:not([disabled])').nth(1).innerText());
+    await page.locator('#fLinea').selectOption(validLine);
+    assert.match(await page.locator('#dicSeleccion').innerText(),/sep-26 · Zona 1 \+ 2/);
+    const total=await page.locator('#pie tr').first().locator('td').allTextContents();
+    assert.ok((await page.locator('#dicCalculo dd').first().innerText()).includes(total[1]));
+    const filteredTotal=await page.locator('#pie').textContent();
+    await page.locator('[data-ir-diccionario="dic-calculo"]').click();
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'dic-calculo');
+    await page.screenshot({path:path.join(output,'diccionario-calculo.png')});
+    await page.locator('#dicBuscar').fill('depreciacion');
+    assert.ok(await page.locator('.dic-termino:visible').count()>0);
+    assert.ok(await page.locator('.dic-termino:visible').count()<20);
+    assert.equal(await page.locator('.dic-termino:visible:not([open])').count(),0);
+    await page.locator('#dicBuscar').fill('zzsincoincidenciaszz');
+    assert.equal(await page.locator('#dicVacio').isVisible(),true);
+    assert.equal(await page.locator('.dic-termino:visible').count(),0);
+    await page.locator('#dicBuscar').fill('');
+    assert.equal(await page.locator('.dic-termino:visible').count(),20);
+    await page.locator('.dic-termino summary').first().focus();await page.keyboard.press('Enter');
+    assert.equal(await page.locator('.dic-termino').first().getAttribute('open'),'');
+    await page.locator('#vista-reporte').click();
+    assert.equal(await page.locator('#pie').textContent(),filteredTotal);
+    assert.equal(await page.locator('#tarjetasResumen').isVisible(),true);
+    assert.equal(await page.locator('#expandir').isVisible(),true);
+    await page.locator('#ayudaIg button').click();
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'dic-ig');
+    await page.locator('#vista-graficos').click();
+    assert.equal(await page.locator('#vistaGraficos').isVisible(),true);
+    assert.equal(await page.locator('#vistaDiccionario').isVisible(),false);
+    await page.locator('#detalleMesGrafico').click();
+    assert.equal(await page.locator('#modalBg').isVisible(),true);await page.locator('#mCerrar').click();
+    await page.locator('#vista-diccionario').click();await page.locator('#limpiarFiltros').click();
+    assert.equal(await page.locator('#vistaDiccionario').isVisible(),true);
+    assert.match(await page.locator('#dicSeleccion').innerText(),/oct-26 · Todas las zonas/);
+    await page.locator('.dic-atajos [data-ir-diccionario="dic-ig"]').click();
+    for(const width of [390,768,1440]){
+      await page.setViewportSize({width,height:900});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+      if(width===390)await page.screenshot({path:path.join(output,'diccionario-movil.png')});
+    }
+    await page.evaluate(()=>window.scrollTo(0,0));await page.locator('header [data-control-tema]').click();
+    assert.equal(await page.locator('html').getAttribute('data-tema'),'oscuro');
+    await page.waitForTimeout(350);
+    await page.screenshot({path:path.join(output,'diccionario-oscuro.png')});
+    assert.deepEqual(errors,[]);
+    const backup=fs.readFileSync(path.join(output,'app/panel.js'),'utf8').match(/const CIFRADO = (\{[^\n]+\});/)[1];
+    const current=fs.readFileSync('panel_costos/app/panel.js','utf8').match(/const CIFRADO = (\{[^\n]+\});/)[1];
+    assert.equal(current,backup);
+    console.log('OK: navegación, estados IG fuente/histórico, cálculo filtrado, meses completos/pendientes/sin meta, búsqueda sin acentos, teclado, regreso al reporte, gráfico y detalle, móvil/tablet/escritorio, modo oscuro, datos cifrados conservados y consola sin errores.');
+  }finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exit(1);});

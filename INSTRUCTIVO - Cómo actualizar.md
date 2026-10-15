@@ -4,11 +4,49 @@
 
 ## ▶️ Para VER el panel
 
-Doble clic en **`Panel Costos Resiter.html`**. Se abre en el navegador y **pide una contraseña**.
-Para compartirlo, incluye **`Panel Costos Resiter.html`** y la carpeta **`app`** completa,
-manteniendo ambos al mismo nivel, y pasa la contraseña por separado.
-El HTML carga los estilos desde `app/panel.css` y el código y los datos cifrados desde `app/panel.js`.
-Cada actualización regenera los tres archivos. Si el panel está abierto, recarga la página después de actualizarlo.
+Doble clic en **`Panel Costos Resiter.html`**. Se abre una portada con tres tarjetas,
+con la misma estructura de navegación de Mantenimiento y Reporte Codelco:
+
+- **Reporte de costos:** `web/pages/Panel_Reporte_Costos.html`.
+- **Proyectado vs real por mes:** `web/pages/Panel_Proyectado_Real.html`.
+- **Diccionario y ayuda:** `web/pages/Panel_Diccionario.html`.
+
+Cada tarjeta abre un HTML independiente. Las vistas tienen navegación horizontal y
+**Volver al inicio**. Conservan período, zona, unidad y línea al navegar.
+La portada **pide la contraseña**. Después de ingresarla, sus tres tarjetas abren las vistas
+sin volver a pedirla; la navegación entre vistas y **Volver al inicio** conserva ese acceso.
+Si abres directamente un HTML dentro de `web/pages`, **sí pide la contraseña**, aunque
+hayas consultado otra vista en esa pestaña. Recargar una página desbloqueada conserva el acceso.
+La sesión se mantiene en la pestaña si el navegador admite su almacenamiento de sesión;
+la contraseña no se guarda. Una publicación nueva vuelve a pedirla.
+
+Para compartirlo, incluye **`Panel Costos Resiter.html`** y las carpetas **`web`** y **`app`** completas,
+manteniendo su estructura, y pasa la contraseña por separado. Las vistas comparten
+`app/panel.css`, `app/panel.js` y el logo; los datos se mantienen cifrados en `app/panel.js`.
+Cada actualización regenera la portada, los tres HTML y los recursos comunes.
+Si el panel está abierto, recarga la página después de actualizarlo.
+
+### Diccionario y ayuda
+
+La vista **Diccionario y ayuda** tiene cuatro secciones: **Cómo usar el panel**,
+**Términos y cálculos**, **Dudas frecuentes** y **Actualizar datos**. Su buscador consulta
+términos, instrucciones, soluciones y fuentes, reconoce palabras sin acentos y abre la
+respuesta encontrada. Las secciones también se recorren con las flechas del teclado.
+
+La barra de filtros aparece en el reporte y en el gráfico. La ayuda conserva la selección
+de esas vistas para explicar su cálculo; **Cambiar selección en el reporte** permite volver
+y ajustarla. El enlace **¿Cómo resolver el IG pendiente?** abre directamente las instrucciones
+de actualización del IG.
+
+La vista distingue **IG reconocido hasta** (fuente más histórico conservado) de
+**IG del archivo fuente hasta** (cobertura del libro leído). El estado del IG es global:
+comprueba también los contratos y sus partidas de personal y depreciación en el detalle.
+
+Para actualizar en **Windows**, usa **`Actualizar panel.bat`**; en **Mac**, usa
+**`Actualizar panel.command`**. Confirma el mensaje **PANEL ACTUALIZADO CORRECTAMENTE**,
+recarga el panel y revisa las fechas de cobertura. Deja un solo IG `.xlsm` en `Fuentes`;
+guarda los respaldos fuera de esa carpeta. Si el IG tiene fórmulas, recalcula y guarda en Excel
+antes de actualizar, porque el lector utiliza los resultados guardados.
 
 ### Descargar las OC y su resumen
 
@@ -41,7 +79,7 @@ El panel **viene cifrado**: los datos están encriptados dentro de `app/panel.js
 - **Importante:** quien tenga la contraseña puede ver los datos. Elige una robusta y compártela por un canal aparte.
 - Cualquiera que tenga acceso a esta carpeta puede leer `motor/clave.txt`. Si quieres que la contraseña sea
   un secreto real frente a quienes ven la carpeta, guarda la carpeta `motor` en un lugar restringido
-  (o no la compartas) y distribuye solo el `.html` junto con la carpeta `app`.
+  (o no la compartas) y distribuye solo la portada junto con las carpetas `web` y `app`.
 - El cifrado necesita que el navegador abra el archivo de forma segura (desde SharePoint, o doble clic local).
   Funciona en Chrome, Edge, Firefox y Safari.
 
